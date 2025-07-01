@@ -283,7 +283,15 @@ class ESMFold(Runner):
             raise KeyError(f"Options must not contain '--fasta' or '--output_dir'!")
 
         # write ESMFold cmds:
-        cmds = [self.write_cmd(pose, output_dir=esm_preds_dir, options=options) for pose in pose_fastas]
+        cmds = [
+            self.write_cmd_with_gpu(
+                pose_path=pose,
+                output_dir=esm_preds_dir,
+                options=options,
+                gpu_id=i % jobstarter.max_cores if hasattr(jobstarter, "max_cores") else i % 8  # fallback to 8 GPUs
+            )
+            for i, pose in enumerate(pose_fastas)
+        ]
 
         # prepend pre-cmd if defined:
         if self.pre_cmd:
@@ -422,6 +430,10 @@ class ESMFold(Runner):
 
         return f"{self.python_path} {protflow.config.AUXILIARY_RUNNER_SCRIPTS_DIR}/esmfold_inference.py --fasta {pose_path} --output_dir {output_dir} {protflow.runners.options_flags_to_string(opts, flags, sep='--')}"
 
+    def write_cmd_with_gpu(self, pose_path: str, output_dir: str, options: str, gpu_id: int):
+        base_cmd = self.write_cmd(pose_path, output_dir, options)
+        return f'CUDA_VISIBLE_DEVICES={gpu_id} bash -c "{base_cmd}"'
+
 def collect_scores(work_dir:str) -> pd.DataFrame:
     """
     Collect and process the scores from ESMFold output.
@@ -465,6 +477,7 @@ def collect_scores(work_dir:str) -> pd.DataFrame:
     pdb_dir = os.path.join(work_dir, "esm_preds")
     fl = glob(f"{pdb_dir}/fasta_*/*.json")
     pl = glob(f"{pdb_dir}/fasta_*/*.pdb")
+    print()
 
     output_dir = os.path.join(work_dir, 'output_pdbs')
     os.makedirs(output_dir, exist_ok=True)
@@ -474,6 +487,8 @@ def collect_scores(work_dir:str) -> pd.DataFrame:
 
     # read the files, add origin column, and concatenate into single DataFrame:
     df = pd.concat([pd.read_json(f) for f in fl]).reset_index(drop=True)
+
+    logging.info(f"df: {df}, pl: {pl}, fl: {fl}")
 
     # merge with df containing locations
     df = df.merge(df_pdb, on='description')

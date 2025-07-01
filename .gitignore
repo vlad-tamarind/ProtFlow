@@ -169,3 +169,14 @@ protflow/config.py
 config.py
 manuscript
 config_copy.py
+
+tests/out_Colabfold/
+tests/out_ESMFold/
+tests/out_LigandMPNN/
+tests/out_RFdiffusion/
+tests/out_Rosetta/
+tests/outputs/
+tests/test_results.csv
+
+.gitignore
+tests/log.txt

@@ -345,7 +345,17 @@ class Rosetta(Runner):
         cmds = []
         for pose, pose_opts in zip(poses.df['poses'].to_list(), pose_options):
             for i in range(1, nstruct+1):
-                cmds.append(self.write_cmd(pose_path=pose, rosetta_application=rosetta_exec, output_dir=work_dir, i=i, overwrite=overwrite, options=options, pose_options=pose_opts))
+                gpu_id = (i - 1) % torch.cuda.device_count()  # round-robin over GPUs
+                cmds.append(self.write_cmd_with_gpu(
+                    pose_path=pose,
+                    rosetta_application=rosetta_exec,
+                    output_dir=work_dir,
+                    i=i,
+                    overwrite=overwrite,
+                    options=options,
+                    pose_options=pose_opts,
+                    gpu_id=gpu_id
+                ))
 
         # prepend pre-cmd if defined:
         if self.pre_cmd:
@@ -450,6 +460,10 @@ class Rosetta(Runner):
 
         return run_string
 
+    def write_cmd_with_gpu(self, *args, gpu_id=0, **kwargs):
+        base_cmd = self.write_cmd(*args, **kwargs)
+        return f'CUDA_VISIBLE_DEVICES={gpu_id} bash -c "{base_cmd}"'
+
 def collect_scores(work_dir: str) -> pd.DataFrame:
     """
     Collects scores from Rosetta output files and reindexes PDB files.
@@ -517,6 +531,10 @@ def collect_scores(work_dir: str) -> pd.DataFrame:
     scores_df.reset_index(drop="True", inplace=True)
 
     return scores_df
+
+    def write_cmd_with_gpu(self, *args, gpu_id=0, **kwargs):
+        base_cmd = self.write_cmd(*args, **kwargs)
+        return f'CUDA_VISIBLE_DEVICES={gpu_id} bash -c "{base_cmd}"'
 
 def clean_rosetta_scorefile(path_to_file: str, out_path: str) -> str:
     """

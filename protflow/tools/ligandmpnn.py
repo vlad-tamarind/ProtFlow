@@ -296,11 +296,40 @@ class LigandMPNN(Runner):
         pose_options = [options_flags_to_string(*parse_generic_options(pose_opt, pose_opt_cols_opt, sep="--"), sep="--") for pose_opt, pose_opt_cols_opt in zip(pose_options, pose_opt_cols_options)]
 
         # write ligandmpnn cmds:
-        cmds = [self.write_cmd(pose, output_dir=work_dir, model=model_type, nseq=nseq, options=options, pose_options=pose_opts) for pose, pose_opts in zip(poses.df['poses'].to_list(), pose_options)]
+        if not run_batch:
+            cmds = [
+                self.write_cmd_with_gpu(
+                    pose_path=pose,
+                    output_dir=work_dir,
+                    model=model_type,
+                    nseq=nseq,
+                    options=options,
+                    pose_options=pose_opts,
+                    gpu_id=i % jobstarter.max_cores if hasattr(jobstarter, "max_cores") else i % 8
+                )
+                for i, (pose, pose_opts) in enumerate(zip(poses.df['poses'].to_list(), pose_options))
+            ]
+        else:
+            # First build base commands
+            base_cmds = [
+                self.write_cmd(
+                    pose_path=pose,
+                    output_dir=work_dir,
+                    model=model_type,
+                    nseq=nseq,
+                    options=options,
+                    pose_options=pose_opts
+                )
+                for pose, pose_opts in zip(poses.df['poses'].to_list(), pose_options)
+            ]
+            # Batch them
+            cmds = self.setup_batch_run(base_cmds, num_batches=jobstarter.max_cores, output_dir=work_dir)
 
-        # batch_run setup:
-        if run_batch:
-            cmds = self.setup_batch_run(cmds, num_batches=jobstarter.max_cores, output_dir=work_dir)
+            # Then assign GPUs after batching
+            cmds = [
+                f'CUDA_VISIBLE_DEVICES={i % jobstarter.max_cores if hasattr(jobstarter, "max_cores") else i % 8} bash -c "{cmd}"'
+                for i, cmd in enumerate(cmds)
+            ]
 
         # prepend pre-cmd if defined:
         if self.pre_cmd:
@@ -631,6 +660,10 @@ class LigandMPNN(Runner):
 
         # write command and return.
         return f"{self.python_path} {self.script_path} {model_checkpoint_options} --out_folder {output_dir}/ --pdb_path {pose_path} {options}"
+
+    def write_cmd_with_gpu(self, pose_path: str, output_dir: str, model: str, nseq: int, options: str, pose_options: str, gpu_id: int):
+        base_cmd = self.write_cmd(pose_path, output_dir, model, nseq, options, pose_options)
+        return f'CUDA_VISIBLE_DEVICES={gpu_id} bash -c "{base_cmd}"'
 
 def collect_scores(work_dir: str, return_seq_threaded_pdbs_as_pose: bool, preserve_original_output: bool = True, pack_sidechains: bool = False) -> pd.DataFrame:
     """

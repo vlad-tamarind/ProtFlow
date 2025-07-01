@@ -295,8 +295,9 @@ class Colabfold(Runner):
 
         # write colabfold cmds:
         cmds = []
-        for pose, pose_opt in zip(pose_fastas, pose_options):
-            cmds.append(self.write_cmd(pose, output_dir=af2_preds_dir, options=options, pose_options=pose_opt))
+        for i, (pose, pose_opt) in enumerate(zip(pose_fastas, pose_options)):
+            gpu_id = i % torch.cuda.device_count()
+            cmds.append(self.write_cmd_with_gpu(pose, output_dir=af2_preds_dir, options=options, pose_options=pose_opt, gpu_id=gpu_id))
 
         # prepend pre-cmd if defined:
         if self.pre_cmd:
@@ -442,6 +443,10 @@ class Colabfold(Runner):
         flags = " --" + " --".join(flags) if flags else ""
 
         return f"{self.script_path} {opts} {flags} {pose_path} {output_dir} "
+
+    def write_cmd_with_gpu(self, *args, gpu_id=0, **kwargs):
+        base_cmd = self.write_cmd(*args, **kwargs)
+        return f'CUDA_VISIBLE_DEVICES={gpu_id} bash -c "{base_cmd}"'
 
 def collect_scores(work_dir: str, num_return_poses: int = 1) -> pd.DataFrame:
     """

@@ -340,17 +340,25 @@ class RFdiffusion(Runner):
         # handling of empty poses DataFrame.
         if len(poses) == 0 and pose_options:
             # if no poses are set, but pose_options are provided, create as many jobs as pose_options. output_pdbs must be specified in pose options!
+            print(1111)
             cmds = [self.write_cmd(pose=None, options=options, pose_opts=pose_option, output_dir=pdb_dir, num_diffusions=num_diffusions) for pose_option in pose_options]
         elif len(poses) == 0 and not pose_options:
             # if neither poses nor pose_options exist: write n=max_cores commands with generic output name.
+            print(2222)
             cmds = [self.write_cmd(pose=None, options=options, pose_opts="inference.output_prefix=" + os.path.join(pdb_dir, f"diff_{str(i+1).zfill(4)}"), output_dir=pdb_dir, num_diffusions=num_diffusions) for i in range(jobstarter.max_cores)]
         elif multiplex_poses:
             # create multiple copies (specified by multiplex variable) of poses to fully utilize parallel computing:
+            print(3333)
             poses.duplicate_poses(f"{poses.work_dir}/{prefix}_multiplexed_input_pdbs/", multiplex_poses)
             cmds = [self.write_cmd(pose, options, pose_opts, output_dir=pdb_dir, num_diffusions= num_diffusions) for pose, pose_opts in zip(poses.poses_list(), poses.df[f"temp_{prefix}_pose_opts"].to_list())]
         else:
-            # write rfdiffusion cmds
-            cmds = [self.write_cmd(pose, options, pose_opts, output_dir=pdb_dir, num_diffusions=num_diffusions) for pose, pose_opts in zip(poses.poses_list(), pose_options)]
+            # write rfdiffusion cmds with GPU assignment
+            print(4444)
+            cmds = []
+            for i, (pose, pose_opts) in enumerate(zip(poses.poses_list(), pose_options)):
+                gpu_id = i % 8
+                cmd = self.write_cmd_with_gpu(pose, options, pose_opts, pdb_dir, num_diffusions, gpu_id)
+                cmds.append(cmd)
 
         # prepend pre-cmd if defined:
         if self.pre_cmd:
@@ -485,6 +493,10 @@ class RFdiffusion(Runner):
 
         # return cmd
         return f"sleep {timer}; {self.python_path} {self.script_path} {opts_str}"
+    
+    def write_cmd_with_gpu(self, pose, options, pose_opts, output_dir, num_diffusions, gpu_id):
+        inner_cmd = self.write_cmd(pose, options, pose_opts, output_dir, num_diffusions)
+        return f'CUDA_VISIBLE_DEVICES={gpu_id} bash -c "{inner_cmd}"'
 
     def parse_rfdiffusion_opts(self, options: str, pose_options: str) -> dict:
         """
