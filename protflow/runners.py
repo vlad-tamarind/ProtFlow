@@ -149,13 +149,9 @@ class RunnerOutput:
 
         # if poses.df contains scores, merge DataFrames based on poses_description to keep scores continous
         else:
-            logging.info(f"WE ARE HERE")
-            logging.info(f"self.poses.df: {self.poses.df}")
-            logging.info(f"self.results: {self.results}")
             merged_df = self.poses.df.merge(self.results, left_on="poses_description", right_on=f"{self.prefix}_select_col") # pylint: disable=W0201
 
         # cleanup after merger
-        logging.info(f"merged_df: {merged_df}")
         merged_df.drop(f"{self.prefix}_select_col", axis=1, inplace=True)
         merged_df.reset_index(inplace=True, drop=True)
 

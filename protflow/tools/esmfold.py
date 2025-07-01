@@ -477,7 +477,6 @@ def collect_scores(work_dir:str) -> pd.DataFrame:
     pdb_dir = os.path.join(work_dir, "esm_preds")
     fl = glob(f"{pdb_dir}/fasta_*/*.json")
     pl = glob(f"{pdb_dir}/fasta_*/*.pdb")
-    print()
 
     output_dir = os.path.join(work_dir, 'output_pdbs')
     os.makedirs(output_dir, exist_ok=True)
@@ -487,8 +486,6 @@ def collect_scores(work_dir:str) -> pd.DataFrame:
 
     # read the files, add origin column, and concatenate into single DataFrame:
     df = pd.concat([pd.read_json(f) for f in fl]).reset_index(drop=True)
-
-    logging.info(f"df: {df}, pl: {pl}, fl: {fl}")
 
     # merge with df containing locations
     df = df.merge(df_pdb, on='description')
