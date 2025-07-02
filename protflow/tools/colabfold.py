@@ -296,7 +296,7 @@ class Colabfold(Runner):
         # write colabfold cmds:
         cmds = []
         for i, (pose, pose_opt) in enumerate(zip(pose_fastas, pose_options)):
-            gpu_id = i % torch.cuda.device_count()
+            gpu_id = i % 8
             cmds.append(self.write_cmd_with_gpu(pose, output_dir=af2_preds_dir, options=options, pose_options=pose_opt, gpu_id=gpu_id))
 
         # prepend pre-cmd if defined:

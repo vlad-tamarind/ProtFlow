@@ -305,7 +305,7 @@ class LigandMPNN(Runner):
                     nseq=nseq,
                     options=options,
                     pose_options=pose_opts,
-                    gpu_id=i % jobstarter.max_cores if hasattr(jobstarter, "max_cores") else i % 8
+                    gpu_id=i % 8
                 )
                 for i, (pose, pose_opts) in enumerate(zip(poses.df['poses'].to_list(), pose_options))
             ]
@@ -327,7 +327,7 @@ class LigandMPNN(Runner):
 
             # Then assign GPUs after batching
             cmds = [
-                f'CUDA_VISIBLE_DEVICES={i % jobstarter.max_cores if hasattr(jobstarter, "max_cores") else i % 8} bash -c "{cmd}"'
+                f'CUDA_VISIBLE_DEVICES={i % 8} bash -c "{cmd}"'
                 for i, cmd in enumerate(cmds)
             ]
 

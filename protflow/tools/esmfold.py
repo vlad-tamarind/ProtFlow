@@ -288,7 +288,7 @@ class ESMFold(Runner):
                 pose_path=pose,
                 output_dir=esm_preds_dir,
                 options=options,
-                gpu_id=i % jobstarter.max_cores if hasattr(jobstarter, "max_cores") else i % 8  # fallback to 8 GPUs
+                gpu_id=i % 8  # fallback to 8 GPUs
             )
             for i, pose in enumerate(pose_fastas)
         ]
