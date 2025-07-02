@@ -345,7 +345,7 @@ class Rosetta(Runner):
         cmds = []
         for pose, pose_opts in zip(poses.df['poses'].to_list(), pose_options):
             for i in range(1, nstruct+1):
-                gpu_id = (i - 1) % torch.cuda.device_count()  # round-robin over GPUs
+                gpu_id = (i - 1) % 8
                 cmds.append(self.write_cmd_with_gpu(
                     pose_path=pose,
                     rosetta_application=rosetta_exec,
